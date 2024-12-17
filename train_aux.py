@@ -37,6 +37,15 @@ from utils.wandb_logging.wandb_utils import WandbLogger, check_wandb_resume
 
 logger = logging.getLogger(__name__)
 
+# Specify the path of the file to be deleted
+file_path = '/workspace/dataset/val/labels.cache'
+
+# Check if the file exists before attempting to delete it
+if os.path.exists(file_path):
+    os.remove(file_path)
+    print(f"The file {file_path} has been deleted.")
+else:
+    print(f"The file {file_path} does not exist.")
 
 def train(hyp, opt, device, tb_writer=None):
     logger.info(colorstr('hyperparameters: ') + ', '.join(f'{k}={v}' for k, v in hyp.items()))
@@ -60,7 +69,7 @@ def train(hyp, opt, device, tb_writer=None):
     plots = not opt.evolve  # create plots
     cuda = device.type != 'cpu'
     init_seeds(2 + rank)
-    with open(opt.data) as f:
+    with open(opt.data, encoding='utf-8') as f:
         data_dict = yaml.load(f, Loader=yaml.SafeLoader)  # data dict
     is_coco = opt.data.endswith('coco.yaml')
 
@@ -457,18 +466,22 @@ def train(hyp, opt, device, tb_writer=None):
                         'optimizer': optimizer.state_dict(),
                         'wandb_id': wandb_logger.wandb_run.id if wandb_logger.wandb else None}
 
-                # Save last, best and delete
+                # Save last, best and every 10 epochs
                 torch.save(ckpt, last)
                 if best_fitness == fi:
                     torch.save(ckpt, best)
-                if (best_fitness == fi) and (epoch >= 200):
-                    torch.save(ckpt, wdir / 'best_{:03d}.pt'.format(epoch))
-                if epoch == 0:
-                    torch.save(ckpt, wdir / 'epoch_{:03d}.pt'.format(epoch))
-                elif ((epoch+1) % 25) == 0:
-                    torch.save(ckpt, wdir / 'epoch_{:03d}.pt'.format(epoch))
-                elif epoch >= (epochs-5):
-                    torch.save(ckpt, wdir / 'epoch_{:03d}.pt'.format(epoch))
+                #if (best_fitness == fi) and (epoch >= 200):
+                    #torch.save(ckpt, wdir / 'best_{:03d}.pt'.format(epoch))
+                #if epoch == 0:
+                    #torch.save(ckpt, wdir / 'epoch_{:03d}.pt'.format(epoch))
+                #elif ((epoch+1) % 25) == 0:
+                    #torch.save(ckpt, wdir / 'epoch_{:03d}.pt'.format(epoch))
+                #elif epoch >= (epochs-5):
+                    #torch.save(ckpt, wdir / 'epoch_{:03d}.pt'.format(epoch))
+
+                if (epoch + 1) % 10 == 0:
+                    torch.save(ckpt, wdir / 'epoch_{:03d}.pt'.format(epoch + 1))
+
                 if wandb_logger.wandb:
                     if ((epoch + 1) % opt.save_period == 0 and not final_epoch) and opt.save_period != -1:
                         wandb_logger.log_model(
